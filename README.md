@@ -1,35 +1,34 @@
 # ☁️ Azure SQL Free‑Tier Lab – Terraform, FinOps & Security‑First
 
-Automatiza el despliegue, verificación y limpieza de una base de datos **Azure SQL Database Serverless – Free Tier** con **Terraform 1.7+**, siguiendo buenas prácticas de FinOps, gobernanza y seguridad.
+Laboratorio automatizado para desplegar, verificar y eliminar una **Azure SQL Database Serverless – Free Tier** usando **Terraform 1.7+** y **Azure CLI**. Integra buenas prácticas de **FinOps**, **gobernanza**, **seguridad** y **etiquetado** para laboratorios, entornos de prueba o capacitación.
 
 ---
 
 ## 🎯 Objetivo
 
-> Al finalizar este laboratorio, aprenderás a:
+> Al finalizar aprenderás a:
 
-- Preparar un entorno WSL Ubuntu Server 24.04 LTS listo para usar.
-- Implementar infraestructura de bajo costo en Azure con Terraform.
-- Aplicar etiquetas estándar (tags) para gestión de costes.
-- Proteger con TLS 1.2 y firewall Just-in-Time.
-- Verificar la conectividad con `sqlcmd`.
-- Destruir todo y evitar costos innecesarios.
+- Preparar un entorno WSL con Ubuntu Server 24.04 LTS.
+- Desplegar infraestructura de bajo costo en Azure usando Terraform.
+- Aplicar etiquetas (tags) padronizadas para gestión de costes.
+- Proteger la superficie de ataque (TLS 1.2 y reglas de firewall just‑in‑time).
+- Verificar conectividad SQL y eliminar recursos, evitando cargos.
 
 ---
 
-## 🗂️ Índice Rápido
+## 📋 Índice
 
-- [🧱 Arquitectura](#-arquitectura)
-- [🔧 Requisitos previos](#-requisitos-previos)
-- [⚙️ Instalación de herramientas](#-instalación-de-herramientas)
-- [📁 Estructura del proyecto](#-estructura-del-proyecto)
-- [🚀 Despliegue paso a paso](#-despliegue-paso-a-paso)
-- [✅ Verificación](#-verificación)
-- [🧹 Destrucción y limpieza](#-destrucción-y-limpieza)
-- [💰 Buenas prácticas FinOps](#-buenas-prácticas-finops)
-- [🔐 Seguridad y gobernanza](#-seguridad-y-gobernanza)
-- [🛠️ Solución de problemas](#-solución-de-problemas)
-- [📚 Referencias](#-referencias)
+- [Arquitectura](#arquitectura)
+- [Requisitos previos](#requisitos-previos)
+- [Instalación de herramientas](#instalación-de-herramientas)
+- [Estructura del proyecto](#estructura-del-proyecto)
+- [Despliegue paso a paso](#despliegue-paso-a-paso)
+- [Verificación](#verificación)
+- [Destrucción y limpieza](#destrucción-y-limpieza)
+- [Buenas prácticas FinOps](#buenas-prácticas-finops)
+- [Seguridad y gobernanza](#seguridad-y-gobernanza)
+- [Solución de problemas](#solución-de-problemas)
+- [Referencias](#referencias)
 
 ---
 
@@ -51,22 +50,22 @@ Automatiza el despliegue, verificación y limpieza de una base de datos **Azure 
 └────────────────────────────────────────┘
 ```
 
-- 📍 **Región:** `eastus2` (admite free tier con alta disponibilidad)
-- 💡 **Consumo:** solo se cobra cuando está en uso (serverless + autopause)
-- 🔒 **Acceso:** se restringe a la IP pública al momento de despliegue
+- 🌎 **Región:** `eastus2`
+- 💸 **Modelo:** serverless con auto-pausa → paga solo por uso
+- 🔐 **Acceso:** solo desde tu IP pública al momento del despliegue
 
 ---
 
 ## 🔧 Requisitos Previos
 
-| Herramienta     | Versión mínima | Instalado en        |
-|------------------|----------------|----------------------|
-| Ubuntu (WSL)     | 24.04 LTS      | Windows 10/11        |
-| Azure CLI        | 2.60           | WSL                  |
-| Terraform        | 1.7            | WSL                  |
-| sqlcmd           | ≥ 1.8          | WSL (se auto-instala)|
+| Herramienta    | Versión mínima | Instalado en       |
+|----------------|----------------|---------------------|
+| Ubuntu (WSL)   | 24.04 LTS      | Windows 10/11       |
+| Azure CLI      | 2.60           | WSL                 |
+| Terraform      | 1.7            | WSL                 |
+| sqlcmd         | ≥ 1.8          | WSL (auto-instalado)|
 
-ℹ️ Validado en Windows 11 + WSL 2 con Ubuntu 24.04
+📌 Validado en Windows 11 + WSL 2
 
 ---
 
@@ -100,59 +99,71 @@ terraform -version
 
 ```
 terraform-sql/
-├── main.tf          # Recursos y pruebas
-├── variables.tf     # Parámetros reutilizables
-├── outputs.tf       # Conexión y secretos sensibles
-├── NOTICE.md        # Licencia
-└── sqlcmd_debug/    # (opcional) trazas sqlcmd
+├── main.tf
+├── variables.tf
+├── outputs.tf
+├── NOTICE.md
+└── sqlcmd_debug/
 ```
 
-### 🧩 Contenidos clave
+### Archivos clave
 
-- `main.tf`: proveedor, sqlcmd, resource group, servidor, BD, firewall y test
-- `variables.tf`: location, tags, usuarios
-- `outputs.tf`: connection string y contraseña (`sensitive = true`)
+| Archivo        | Descripción                                                                 |
+|----------------|-----------------------------------------------------------------------------|
+| `main.tf`      | Proveedor, RG, SQL Server y DB, IP Firewall, prueba sqlcmd                  |
+| `variables.tf` | Parámetros: región, tags, usuario, nombres                                  |
+| `outputs.tf`   | Muestra connection string y contraseña generada (ocultas por seguridad)     |
+
+### Etiquetas por defecto
+
+```hcl
+environment  = "lab"
+cost_center  = "demo"
+owner        = "tu.email@dominio.com"
+project      = "azure-sql-free-tier-lab"
+delete_after = "2025-07-01T23:59:00Z"
+```
 
 ---
 
 ## 🚀 Despliegue Paso a Paso
 
-1. Clona el repo:
-
 ```bash
 git clone https://github.com/<TU-USUARIO>/terraform-sql.git
 cd terraform-sql
-```
 
-2. Autenticación con Azure:
-
-```bash
 az login --use-device-code
 az account set --subscription "<TU-SUBSCRIPCIÓN>"
-```
 
-3. Inicializa y aplica:
-
-```bash
 terraform init
 terraform plan -out tfplan
 terraform apply tfplan
 ```
 
-✅ Genera contraseña aleatoria  
-✅ sqlcmd se descarga en `~/.local/bin`
+- 🧠 `sqlcmd` se descarga (~10MB) y se ubica en `~/.local/bin`
+- 🔐 Contraseña SQL se genera aleatoriamente y se almacena en el *state*
 
 ---
 
 ## ✅ Verificación
 
-Ejecuta el comando mostrado en los outputs:
+### 1. Recupera la contraseña
+
+```bash
+terraform output -raw admin_password
+```
+
+### 2. Ejecuta el test SQL
 
 ```bash
 sqlcmd -S <FQDN> -U sqladmin -P '<PASSWORD>' -d labdb-db -Q "SELECT @@VERSION, '$(date)' AS local_time;"
 ```
 
-Deberías ver el resultado de la consulta con la hora actual UTC.
+🧪 Esto devuelve:
+- La versión del motor de Azure SQL (`@@VERSION`)
+- La hora local de tu sistema (`$(date)`)
+
+Útil para validar conectividad y estimar latencia.
 
 ---
 
@@ -162,38 +173,38 @@ Deberías ver el resultado de la consulta con la hora actual UTC.
 terraform destroy -auto-approve
 ```
 
-💡 Consejo FinOps: automatiza limpieza con GitHub Actions o usa **Azure Auto-Shutdown**.
+💡 Consejo FinOps: automatiza con GitHub Actions o configura Azure Auto-Shutdown.
 
 ---
 
 ## 💰 Buenas Prácticas FinOps
 
-| Práctica             | Aplicación                                                        |
-|----------------------|--------------------------------------------------------------------|
-| Capas gratuitas      | `GP_S_Gen5_2` + auto-pause = coste cercano a cero                 |
-| Etiquetado estándar  | `owner`, `project`, `cost_center`, `delete_after`, etc.           |
-| Autoapagado          | Pausa tras 60 min inactivo                                        |
-| Región optimizada    | `eastus2` (tarifas competitivas + admite tier gratuito)           |
-| Infra mínima         | 1 resource group + 2 recursos SQL                                 |
+| Práctica            | Implementación                                         |
+|---------------------|--------------------------------------------------------|
+| Capas gratuitas     | Tier serverless con auto-pause                        |
+| Etiquetado estándar | Tags heredados en todos los recursos                  |
+| Apagado automático  | SQL se "pausa" tras 60 min inactivo                   |
+| Región optimizada   | `eastus2`: económico y habilitado para Free Tier      |
+| Infra mínima        | Solo un RG, servidor y base de datos                  |
 
 ---
 
 ## 🔐 Seguridad y Gobernanza
 
-- TLS 1.2 forzado en el servidor
-- Firewall limitado a tu IP (`azurerm_mssql_firewall_rule`)
-- Contraseña segura generada y protegida (`random_password`)
-- Sin roles adicionales: mínimo privilegio
+- 🔒 **TLS 1.2** forzado en el servidor
+- 🌍 **Firewall** habilitado solo para tu IP actual
+- 🧩 **Contraseña aleatoria** generada y marcada como `sensitive`
+- 🧑‍💻 **Principio de mínimo privilegio**: solo autenticación SQL local
 
 ---
 
 ## 🛠️ Solución de Problemas
 
-| Síntoma                          | Causa                   | Acción                                  |
-|----------------------------------|--------------------------|------------------------------------------|
-| `sqlcmd` ODBC error              | TLS o puerto bloqueado  | Verifica IP pública + vuelve a aplicar  |
-| `terraform init` falla          | Proxy corporativo       | Exporta `HTTPS_PROXY`                   |
-| sqlcmd no se instala             | Faltan paquetes base    | Instala `curl`, `tar`, `bzip2`          |
+| Síntoma                               | Causa              | Acción                                  |
+|---------------------------------------|---------------------|------------------------------------------|
+| `sqlcmd` error ODBC                   | IP pública cambió   | Reaplica el plan con tu nueva IP         |
+| `terraform init` falla                | Proxy corporativo   | Exporta `HTTPS_PROXY`                    |
+| `sqlcmd` no se instala                | Falta curl o tar    | `sudo apt-get install curl tar bzip2`    |
 
 ---
 
@@ -208,14 +219,14 @@ terraform destroy -auto-approve
 
 ## 📜 Licencia
 
-Publicado bajo licencia **MIT**. Consulta `NOTICE.md` para más información.
+Publicado bajo licencia MIT. Consulta `NOTICE.md` para más información.
 
 ---
 
-⌛ **Duración total:**  
-🛠️ Instalación: ~10 min  
-🚀 Despliegue: ~3 min  
-✅ Prueba: ~1 min
+⌛ **Duración estimada:**  
+🧰 Herramientas: ~10 min  
+🚀 Despliegue: ~3 min  
+✅ Verificación: ~1 min
 
 ---
 
